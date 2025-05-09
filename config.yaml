@@ -1,0 +1,68 @@
+esphome:
+  name: salt_tank_sensor
+  friendly_name: Salt Tank Sensor
+
+esp32:
+  board: esp32-poe
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "YOUR ENCRYPTION KEY" #Generated from ESPHome
+
+ota:
+- platform: esphome
+  password: "YOUR OTA KEY" #Generated from ESPHome
+
+web_server:
+  port: 80
+
+ethernet: #Specific to the OLIMEX-ESP32-POE-ISO
+  type: LAN8720
+  mdc_pin: GPIO23
+  mdio_pin: GPIO18
+  clk_mode: GPIO17_OUT
+  phy_addr: 0
+  power_pin: GPIO12
+
+# Ultrasonic Sensor setup
+sensor:
+  - platform: ultrasonic
+    trigger_pin: GPIO13
+    echo_pin: GPIO14
+    name: "Salt Tank Distance"
+    update_interval: 1800s
+    timeout: 3.0m
+    filters:
+      - median:
+    unit_of_measurement: "cm"
+    accuracy_decimals: 0
+    id: salt_distance
+
+  - platform: template
+    name: "Salt Tank Level"
+    unit_of_measurement: "%"
+    lambda: |-
+      float max_distance = id(salt_tank_max_distance).state;  // cm when empty
+      if (isnan(id(salt_distance).state)) {
+        return NAN;
+      }
+      float level = (max_distance - id(salt_distance).state) / max_distance * 100.0;
+      return level > 100.0 ? 100.0 : (level < 0.0 ? 0.0 : level);
+    update_interval: 1800s
+
+number: #How HA see's it
+  - platform: template
+    name: "Salt Tank Max Distance"
+    id: salt_tank_max_distance
+    optimistic: true
+    min_value: .1
+    max_value: 1
+    step: .1
+    unit_of_measurement: "cm"
+    initial_value: 1
